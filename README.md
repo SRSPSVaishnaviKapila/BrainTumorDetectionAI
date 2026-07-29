@@ -1,4 +1,4 @@
-# NeuroScan AI – Brain Tumor Detection and Doctor Review System
+# BrainTumorDetection AI – Brain Tumor Detection and Doctor Review System
 
 Full-stack React + FastAPI project for AI-assisted brain MRI classification and clinical review workflow.
 
