@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Navbar from "../components/Navbar.jsx";
 import {
   getAdminDashboard, getAdminUsers, getAdminPredictions, createDoctor,
@@ -17,6 +17,7 @@ function AdminDashboard() {
   const [settings, setSettings] = useState({ system_name: "Brain Tumor AI", maintenance_mode: "false", confidence_threshold: "70" });
   const [doctorForm, setDoctorForm] = useState(emptyDoctor);
   const [editing, setEditing] = useState(null);
+  const editFormRef = useRef(null);
   const [userFilters, setUserFilters] = useState({ search: "", role: "", active: "" });
   const [predictionFilters, setPredictionFilters] = useState({ search: "", tumor_class: "", review_status: "" });
   const [assignments, setAssignments] = useState({});
@@ -39,13 +40,73 @@ function AdminDashboard() {
   useEffect(() => { load(); }, []);
 
   const action = async (runner, success) => {
-    setError(""); setMessage("");
-    try { await runner(); setMessage(success); await load(); }
-    catch (err) { setError(err.response?.data?.detail || "Action failed"); }
-  };
+  setError("");
+  setMessage("");
+
+  try {
+    await runner();
+    setMessage(success);
+    await load();
+    return true;
+  } catch (err) {
+    setError(
+      err.response?.data?.detail ||
+      err.message ||
+      "Action failed"
+    );
+    return false;
+  }
+};
+const openEditForm = (user) => {
+  setEditing({
+    ...user,
+    age: user.age || "",
+    gender: user.gender || "",
+    phone: user.phone || "",
+    specialization: user.specialization || "",
+    registration_number: user.registration_number || "",
+  });
+
+  setTimeout(() => {
+    editFormRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, 100);
+};
 
   const addDoctor = (e) => { e.preventDefault(); action(() => createDoctor(doctorForm), "Doctor account created").then(() => setDoctorForm(emptyDoctor)); };
-  const saveUser = (e) => { e.preventDefault(); const { id, email, role, is_active, created_at, updated_at, ...payload } = editing; action(() => updateAdminUser(id, payload), "User updated").then(() => setEditing(null)); };
+  const saveUser = async (e) => {
+  e.preventDefault();
+
+  if (!editing) {
+    return;
+  }
+
+  const payload = {
+    name: editing.name.trim(),
+    phone: editing.phone?.trim() || null,
+    age: editing.age ? Number(editing.age) : null,
+    gender: editing.gender || null,
+    specialization:
+      editing.role === "doctor"
+        ? editing.specialization?.trim() || null
+        : null,
+    registration_number:
+      editing.role === "doctor"
+        ? editing.registration_number?.trim() || null
+        : null,
+  };
+
+  const success = await action(
+    () => updateAdminUser(editing.id, payload),
+    "User updated successfully"
+  );
+
+  if (success) {
+    setEditing(null);
+  }
+};
   const saveSettings = (e) => { e.preventDefault(); action(() => updateSystemSettings({ system_name: settings.system_name, maintenance_mode: settings.maintenance_mode === "true", confidence_threshold: Number(settings.confidence_threshold) }), "Settings updated"); };
   const restore = (e) => {
     e.preventDefault();
@@ -97,7 +158,7 @@ function AdminDashboard() {
           <input placeholder="Phone" value={doctorForm.phone} onChange={(e) => setDoctorForm({ ...doctorForm, phone: e.target.value })} />
           <button>Create Doctor</button>
         </form>
-        {editing ? <form className="form-panel" onSubmit={saveUser}><div className="section-heading"><h2>Edit User</h2><button type="button" className="secondary-btn" onClick={() => setEditing(null)}>Cancel</button></div>
+        {editing ? <form ref={editFormRef} className="form-panel" onSubmit={saveUser}><div className="section-heading"><h2>Edit User</h2><button type="button" className="secondary-btn" onClick={() => setEditing(null)}>Cancel</button></div>
           <input value={editing.name || ""} onChange={(e) => setEditing({ ...editing, name: e.target.value })} required />
           <input value={editing.phone || ""} placeholder="Phone" onChange={(e) => setEditing({ ...editing, phone: e.target.value })} />
           <input type="number" value={editing.age || ""} placeholder="Age" onChange={(e) => setEditing({ ...editing, age: e.target.value ? Number(e.target.value) : null })} />
@@ -111,7 +172,13 @@ function AdminDashboard() {
         <select value={userFilters.role} onChange={(e) => setUserFilters({ ...userFilters, role: e.target.value })}><option value="">All roles</option><option value="patient">Patients</option><option value="doctor">Doctors</option><option value="admin">Admins</option></select>
         <select value={userFilters.active} onChange={(e) => setUserFilters({ ...userFilters, active: e.target.value })}><option value="">All status</option><option value="true">Active</option><option value="false">Inactive</option></select><button>Search</button>
       </form>
-      <section className="table-wrapper"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Specialization</th><th>Actions</th></tr></thead><tbody>{users.map((user) => <tr key={user.id}><td>{user.name}</td><td>{user.email}</td><td className="capitalize">{user.role}</td><td><span className={`badge ${user.is_active ? "completed" : "needs_attention"}`}>{user.is_active ? "Active" : "Inactive"}</span></td><td>{user.specialization || "—"}</td><td><div className="action-row"><button className="small-btn" onClick={() => setEditing({ ...user })}>Edit</button><button className="secondary-btn" onClick={() => action(() => setUserActive(user.id, !user.is_active), `User ${user.is_active ? "deactivated" : "activated"}`)}>{user.is_active ? "Deactivate" : "Activate"}</button>{user.role === "doctor" && <button className="danger-btn" onClick={() => action(() => deleteDoctor(user.id), "Doctor deleted")}>Delete</button>}</div></td></tr>)}</tbody></table></section>
+      <section className="table-wrapper"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Specialization</th><th>Actions</th></tr></thead><tbody>{users.map((user) => <tr key={user.id}><td>{user.name}</td><td>{user.email}</td><td className="capitalize">{user.role}</td><td><span className={`badge ${user.is_active ? "completed" : "needs_attention"}`}>{user.is_active ? "Active" : "Inactive"}</span></td><td>{user.specialization || "—"}</td><td><div className="action-row"><button
+  type="button"
+  className="small-btn"
+  onClick={() => openEditForm(user)}
+>
+  Edit
+</button><button className="secondary-btn" onClick={() => action(() => setUserActive(user.id, !user.is_active), `User ${user.is_active ? "deactivated" : "activated"}`)}>{user.is_active ? "Deactivate" : "Activate"}</button>{user.role === "doctor" && <button className="danger-btn" onClick={() => action(() => deleteDoctor(user.id), "Doctor deleted")}>Delete</button>}</div></td></tr>)}</tbody></table></section>
     </>}
 
     {tab === "predictions" && <>
