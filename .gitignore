@@ -1,0 +1,39 @@
+# Virtual environments
+venv/
+env/
+ENV/
+*.venv
+
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Python cache & build
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Databases
+backend/database/*.db
+
+# Environment variables
+.env
+backend/.env
+frontend/.env
+
+# Uploads & reports (keep directory structure)
+backend/app/uploads/mri_images/*
+!backend/app/uploads/mri_images/.gitkeep
+backend/app/uploads/heatmaps/*
+!backend/app/uploads/heatmaps/.gitkeep
+backend/reports/*.pdf
+!backend/reports/.gitkeep
+backend/backups/*.db
+!backend/backups/.gitkeep
+
+# IDE and OS files
+.DS_Store
+.vscode/
+.idea/
